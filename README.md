@@ -1,4 +1,4 @@
-# afow
+# AFOW
 
 A small, fast file organizer. Point it at a directory and it sorts the top-level files into clean category folders.
 
