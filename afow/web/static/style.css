@@ -1,0 +1,86 @@
+:root {
+  --bg: #0f1115;
+  --panel: #181b22;
+  --border: #262a33;
+  --text: #e6e8ee;
+  --muted: #8a92a3;
+  --accent: #4f8cff;
+  --accent-hover: #3b78ee;
+  --ok: #2faa6b;
+  --err: #d6534b;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+}
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
+header { margin-bottom: 28px; }
+h1 { margin: 0; font-size: 36px; letter-spacing: -0.02em; }
+.tag { color: var(--muted); margin: 4px 0 0; }
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+
+input[type="text"] {
+  width: 100%;
+  padding: 10px 12px;
+  background: #11141a;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  outline: none;
+}
+input[type="text"]:focus { border-color: var(--accent); }
+
+.actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: #1f2330;
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+}
+.btn:hover { background: #262b39; }
+.btn.primary { background: var(--accent); border-color: var(--accent); }
+.btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn.ghost { background: transparent; }
+.btn:disabled { opacity: 0.5; cursor: wait; }
+
+.result h2 { margin: 0 0 4px; font-size: 18px; }
+.meta { color: var(--muted); margin: 0 0 12px; font-size: 13px; }
+
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 500; font-size: 13px; }
+tbody tr:last-child td { border-bottom: none; }
+td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+
+.hint { color: var(--muted); font-size: 13px; margin: 12px 0 0; }
+
+.error { border-color: var(--err); color: var(--err); }
+
+.hidden { display: none; }

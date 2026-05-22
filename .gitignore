@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.claude/
+.vscode/
+.venv/
+venv/
+.afow_undo.json
+.DS_Store
+*.egg-info/
+build/
+dist/

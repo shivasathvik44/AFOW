@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>afow — file organizer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <main>
+    <header>
+      <h1>afow</h1>
+      <p class="tag">organize a folder. nothing else.</p>
+    </header>
+
+    <section class="card">
+      <label for="path">Folder path</label>
+      <input id="path" type="text" placeholder="C:\Users\you\Downloads" autocomplete="off" spellcheck="false" />
+      <div class="actions">
+        <button id="preview" class="btn">Preview</button>
+        <button id="organize" class="btn primary">Organize</button>
+        <button id="undo" class="btn ghost">Undo</button>
+      </div>
+    </section>
+
+    <section id="result" class="card result hidden">
+      <h2 id="result-title"></h2>
+      <p id="result-meta" class="meta"></p>
+      <table id="result-table">
+        <thead><tr><th>Category</th><th>Files</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p id="result-hint" class="hint"></p>
+    </section>
+
+    <section id="error" class="card error hidden"></section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
