@@ -6,16 +6,21 @@ import hashlib
 import json
 import os
 import shutil
+import stat
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from afow.categories import ALL_CATEGORIES, categorize
+from afow.categories import ALL_CATEGORIES, XDG_CATEGORY_MAP, categorize, categorize_file
 
 UNDO_FILENAME = ".afow_undo.json"
 UNDO_VERSION = 1
 
-_CATEGORY_NAMES = frozenset(ALL_CATEGORIES)
+_CATEGORY_NAMES = frozenset((*ALL_CATEGORIES, *XDG_CATEGORY_MAP.values()))
+_SYSTEM_JUNK_NAMES = frozenset({
+    "thumbs.db", "desktop.ini", "ehthumbs.db", ".ds_store",
+})
 
 
 @dataclass
@@ -81,6 +86,7 @@ def organize(
     path: str | os.PathLike,
     dry_run: bool = False,
     dedup_policy: str = "rename",
+    use_xdg_folders: bool = False,
 ) -> Summary:
     """Organize top-level files in *path* into category subfolders.
 
@@ -88,7 +94,7 @@ def organize(
     auto-renamed with a ``(N)`` suffix. When ``dry_run`` is False, history is
     logged to SQLite and a local ``.afow_undo.json`` log is written.
     """
-    root = Path(path).resolve()
+    root = Path(os.path.expandvars(str(path))).expanduser().resolve()
     if not root.is_dir():
         raise NotADirectoryError(f"Not a directory: {root}")
 
@@ -131,7 +137,10 @@ def organize(
         else:
             file_hash = _sha256(src_path)
 
-        category = categorize(entry.name)
+        category = categorize_file(entry)
+        if use_xdg_folders:
+            category = XDG_CATEGORY_MAP.get(category, category)
+
         dest_dir = root / category
         dest_path = _unique_dest(dest_dir, entry.name, reserved)
 
@@ -140,7 +149,7 @@ def organize(
             original_dest = seen_hashes[file_hash]
             dup_info = {
                 "file": entry.name,
-                "duplicate_of": str(original_dest.relative_to(root)),
+                "duplicate_of": original_dest.relative_to(root).as_posix(),
                 "policy": dedup_policy,
             }
             summary.duplicates.append(dup_info)
@@ -170,8 +179,8 @@ def organize(
         summary.moved = len([m for m in moves if m[2] != "delete" and m[2] != "skip"])
         summary.planned_moves = [
             {
-                "from": str(src.relative_to(root)),
-                "to": str(dest.relative_to(root)) if dest and str(dest) != "." and dest != Path("") else "",
+                "from": src.relative_to(root).as_posix(),
+                "to": dest.relative_to(root).as_posix() if dest and str(dest) != "." and dest != Path("") else "",
                 "type": move_type.split(":", 1)[0]
             }
             for src, dest, move_type in moves
@@ -184,7 +193,7 @@ def organize(
         try:
             if move_type == "delete":
                 src.unlink(missing_ok=True)
-                executed_moves.append((str(src.relative_to(root)), ""))
+                executed_moves.append((src.relative_to(root).as_posix(), ""))
                 summary.moved += 1
             elif move_type.startswith("symlink:"):
                 original_dest = Path(move_type.split(":", 1)[1])
@@ -209,7 +218,7 @@ def organize(
                 if src.exists():
                     src.unlink()
 
-                executed_moves.append((str(src.relative_to(root)), str(dest.relative_to(root))))
+                executed_moves.append((src.relative_to(root).as_posix(), dest.relative_to(root).as_posix()))
                 summary.moved += 1
             else:  # "move"
                 dest.parent.mkdir(exist_ok=True)
@@ -217,7 +226,7 @@ def organize(
                     _move_cross_device(src, dest)
                 else:
                     shutil.move(str(src), str(dest))
-                executed_moves.append((str(src.relative_to(root)), str(dest.relative_to(root))))
+                executed_moves.append((src.relative_to(root).as_posix(), dest.relative_to(root).as_posix()))
                 summary.moved += 1
         except Exception as e:
             # Let other moves proceed but keep track or re-raise if fatal.
@@ -235,17 +244,34 @@ def organize(
 
 
 def _should_skip(entry: os.DirEntry) -> bool:
-    """Skip directories, the undo log, hidden files, and our own category folders."""
+    """Skip directories, the undo log, hidden files, and category folders."""
     name = entry.name
     if name == UNDO_FILENAME:
         return True
-    if name.startswith("."):
+    if name.lower() in _SYSTEM_JUNK_NAMES:
         return True
-    if entry.is_dir(follow_symlinks=False):
+    if name.startswith("."):
         return True
     if name in _CATEGORY_NAMES:
         return True
-    return not entry.is_file(follow_symlinks=False)
+
+    # Windows hidden file attribute check
+    if sys.platform == "win32":
+        try:
+            st = entry.stat(follow_symlinks=False)
+            if hasattr(st, "st_file_attributes") and (st.st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN):
+                return True
+        except OSError:
+            pass
+
+    # Skip directories and directory symlinks
+    try:
+        if entry.is_dir(follow_symlinks=False):
+            return True
+        # Support regular files and file symlinks; skip broken symlinks or special devices
+        return not entry.is_file(follow_symlinks=True)
+    except OSError:
+        return True
 
 
 def _unique_dest(dest_dir: Path, filename: str, reserved: set[Path]) -> Path:
@@ -275,8 +301,8 @@ def _write_undo_log(root: Path, moves: list[tuple[Path, Path]]) -> None:
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "moves": [
             {
-                "from": str(src.relative_to(root)),
-                "to": str(dest.relative_to(root)),
+                "from": src.relative_to(root).as_posix(),
+                "to": dest.relative_to(root).as_posix(),
             }
             for src, dest in moves
         ],

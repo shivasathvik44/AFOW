@@ -52,6 +52,29 @@ input[type="text"] {
 }
 input[type="text"]:focus { border-color: var(--accent); }
 
+.quick-folders {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.chip {
+  font-size: 12px;
+  padding: 4px 10px;
+  background: #11141a;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.chip:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
 .actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
 
 .btn {

@@ -17,17 +17,59 @@ def create_app() -> Flask:
     def index():
         return render_template("index.html")
 
+    @app.get("/api/system-info")
+    def api_system_info():
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        platform_name = "windows" if sys.platform == "win32" else ("darwin" if sys.platform == "darwin" else "linux")
+        home = Path.home()
+
+        downloads = home / "Downloads"
+        documents = home / "Documents"
+        desktop = home / "Desktop"
+        pictures = home / "Pictures"
+
+        if platform_name == "linux":
+            import shutil
+            if shutil.which("xdg-user-dir"):
+                dirs = [("DOWNLOAD", "downloads"), ("DOCUMENTS", "documents"), ("DESKTOP", "desktop"), ("PICTURES", "pictures")]
+                for dir_type, attr in dirs:
+                    try:
+                        out = subprocess.check_output(["xdg-user-dir", dir_type], text=True, stderr=subprocess.DEVNULL).strip()
+                        if out and Path(out).is_dir():
+                            if attr == "downloads": downloads = Path(out)
+                            elif attr == "documents": documents = Path(out)
+                            elif attr == "desktop": desktop = Path(out)
+                            elif attr == "pictures": pictures = Path(out)
+                    except (subprocess.SubprocessError, OSError):
+                        pass
+
+        from afow.config import get_default_directory
+        default_dir = get_default_directory()
+        default_str = str(default_dir)
+
+        return jsonify(
+            os=platform_name,
+            placeholder=default_str,
+            default_path=default_str,
+            common_folders=common,
+        )
+
     @app.post("/api/preview")
     def api_preview():
         data = request.get_json(silent=True) or {}
         policy = data.get("dedup_policy") or "rename"
-        return _run(lambda p: organize(p, dry_run=True, dedup_policy=policy), action_name="preview")
+        use_xdg = bool(data.get("use_xdg_folders"))
+        return _run(lambda p: organize(p, dry_run=True, dedup_policy=policy, use_xdg_folders=use_xdg), action_name="preview")
 
     @app.post("/api/organize")
     def api_organize():
         data = request.get_json(silent=True) or {}
         policy = data.get("dedup_policy") or "rename"
-        return _run(lambda p: organize(p, dry_run=False, dedup_policy=policy), action_name="organize")
+        use_xdg = bool(data.get("use_xdg_folders"))
+        return _run(lambda p: organize(p, dry_run=False, dedup_policy=policy, use_xdg_folders=use_xdg), action_name="organize")
 
     @app.post("/api/undo")
     def api_undo():
@@ -37,17 +79,19 @@ def create_app() -> Flask:
 
 
 def _run(action, action_name="action"):
+    import sys
     data = request.get_json(silent=True) or {}
     path = (data.get("path") or "").strip()
-    if path.startswith('"') and path.endswith('"'):
+    if (path.startswith('"') and path.endswith('"')) or (path.startswith("'") and path.endswith("'")):
         path = path[1:-1].strip()
-    if path.startswith("'") and path.endswith("'"):
-        path = path[1:-1].strip()
+
+    # Unescape shell/terminal-escaped spaces on Linux/macOS
+    if sys.platform != "win32" and "\\ " in path:
+        path = path.replace("\\ ", " ")
 
     if not path:
         return jsonify(error="path is required"), 400
 
-    import sys
     from afow.history import get_db_path
     
     log_file = get_db_path().parent / "server.log"

@@ -1,8 +1,37 @@
 import os
 import shutil
-import pytest
 from pathlib import Path
 from unittest.mock import patch
+
+try:
+    import pytest
+except ImportError:
+    import contextlib
+    class _MockPytest:
+        @staticmethod
+        def fixture(*args, **kwargs):
+            return lambda fn: fn
+        @staticmethod
+        def raises(expected_exception):
+            @contextlib.contextmanager
+            def _cm():
+                class _ExcInfo:
+                    value = None
+                info = _ExcInfo()
+                try:
+                    yield info
+                except expected_exception as e:
+                    info.value = e
+                else:
+                    raise AssertionError(f"Expected {expected_exception} but nothing was raised.")
+            return _cm()
+    pytest = _MockPytest()
+
+try:
+    import flask
+    HAS_FLASK = True
+except ImportError:
+    HAS_FLASK = False
 
 from afow.organizer import organize, _is_cross_device, _move_cross_device
 from afow.undo import undo
@@ -178,6 +207,9 @@ def test_size_based_hash_optimization(tmp_path):
 
 
 def test_web_app_quote_handling_and_logging(tmp_path):
+    if not HAS_FLASK:
+        return
+
     from afow.web.app import create_app
     app = create_app()
     app.config["TESTING"] = True
@@ -204,3 +236,51 @@ def test_web_app_quote_handling_and_logging(tmp_path):
     data = res.get_json()
     assert data["moved"] == 1
 
+
+def test_tilde_path_expansion(tmp_path, monkeypatch):
+    # Simulate user home directory
+    fake_home = tmp_path / "fake_home"
+    fake_home.mkdir()
+    monkeypatch.setenv("HOME", str(fake_home))
+    monkeypatch.setenv("USERPROFILE", str(fake_home))
+
+    target = fake_home / "organize_target"
+    target.mkdir()
+    (target / "doc.pdf").write_text("dummy", encoding="utf-8")
+
+    # Organize using tilde path
+    summary = organize("~/organize_target")
+    assert summary.moved == 1
+    assert (target / "Documents" / "doc.pdf").is_file()
+
+    # Undo using tilde path
+    undo_summary = undo("~/organize_target")
+    assert undo_summary.moved == 1
+    assert (target / "doc.pdf").is_file()
+
+
+def test_xdg_folders(tmp_path):
+    # Test XDG folder mapping: Images -> Pictures, Audio -> Music
+    _make_files(tmp_path, {"pic.jpg": "photo", "song.mp3": "audio"})
+    summary = organize(tmp_path, use_xdg_folders=True)
+    assert summary.moved == 2
+    assert (tmp_path / "Pictures" / "pic.jpg").is_file()
+    assert (tmp_path / "Music" / "song.mp3").is_file()
+    assert not (tmp_path / "Images").exists()
+    assert not (tmp_path / "Audio").exists()
+
+    undo_summary = undo(tmp_path)
+    assert undo_summary.moved == 2
+    assert (tmp_path / "pic.jpg").is_file()
+    assert (tmp_path / "song.mp3").is_file()
+
+
+def test_xdg_db_path_resolution(tmp_path, monkeypatch):
+    from afow.history import get_db_path
+    monkeypatch.delenv("AFOW_DB_PATH", raising=False)
+
+    fake_xdg = tmp_path / "custom_xdg_data"
+    monkeypatch.setenv("XDG_DATA_HOME", str(fake_xdg))
+
+    db_path = get_db_path()
+    assert str(fake_xdg) in str(db_path)

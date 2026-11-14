@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=AFOW File Organizer
+GenericName=File Organizer
+Comment=Organize files into clean category folders
+Exec=python3 -m afow --serve
+Icon=system-file-manager
+Terminal=false
+Type=Application
+Categories=Utility;FileManager;
+StartupNotify=true

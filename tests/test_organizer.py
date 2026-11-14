@@ -1,6 +1,25 @@
 import json
 
-import pytest
+try:
+    import pytest
+except ImportError:
+    import contextlib
+    class _MockPytest:
+        @staticmethod
+        def raises(expected_exception):
+            @contextlib.contextmanager
+            def _cm():
+                class _ExcInfo:
+                    value = None
+                info = _ExcInfo()
+                try:
+                    yield info
+                except expected_exception as e:
+                    info.value = e
+                else:
+                    raise AssertionError(f"Expected {expected_exception} but nothing was raised.")
+            return _cm()
+    pytest = _MockPytest()
 
 from afow.organizer import UNDO_FILENAME, organize
 

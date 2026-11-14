@@ -6,6 +6,40 @@ const resultBody = document.querySelector("#result-table tbody");
 const resultHint = document.getElementById("result-hint");
 const errorBox = document.getElementById("error");
 const buttons = document.querySelectorAll(".btn");
+const quickFoldersBox = document.getElementById("quick-folders");
+
+async function initSystemInfo() {
+  try {
+    const res = await fetch("/api/system-info");
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.placeholder) {
+      pathInput.placeholder = data.placeholder;
+    }
+    if (data.default_path && !pathInput.value) {
+      pathInput.value = data.default_path;
+    }
+    if (data.common_folders && data.common_folders.length > 0 && quickFoldersBox) {
+      quickFoldersBox.innerHTML = "";
+      data.common_folders.forEach((folder) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip";
+        chip.textContent = folder.label;
+        chip.title = folder.path;
+        chip.addEventListener("click", () => {
+          pathInput.value = folder.path;
+        });
+        quickFoldersBox.appendChild(chip);
+      });
+      quickFoldersBox.classList.remove("hidden");
+    }
+  } catch (err) {
+    // Graceful degradation
+  }
+}
+
+initSystemInfo();
 
 function setBusy(busy) {
   buttons.forEach((b) => (b.disabled = busy));

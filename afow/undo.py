@@ -17,7 +17,7 @@ def undo(path: str | os.PathLike, run_id: int | None = None) -> Summary:
     If run_id is None, try to reverse the latest SQLite run first.
     Otherwise, fall back to reversing the legacy JSON log for this path.
     """
-    root = Path(path).resolve()
+    root = Path(os.path.expandvars(str(path))).expanduser().resolve()
     if not root.is_dir():
         raise NotADirectoryError(f"Not a directory: {root}")
 

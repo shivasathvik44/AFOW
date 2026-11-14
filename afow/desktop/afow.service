@@ -1,0 +1,11 @@
+[Unit]
+Description=AFOW File Organizer Web Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -m afow --serve --port 5000
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
